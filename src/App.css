@@ -1,0 +1,54 @@
+:root {
+  color-scheme: light;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial,
+    sans-serif;
+  color: #0f172a;
+}
+
+#root {
+  min-height: 100vh;
+}
+
+.app {
+  width: 100vw;
+  height: 100vh;
+  margin: 0;
+  padding: 0;
+}
+
+.tableau-wrapper {
+  width: 100vw;
+  height: 100vh;
+}
+
+.tableau-wrapper tableau-viz {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.missing-url {
+  background: rgba(255, 247, 237, 0.86);
+  border: 1px solid #fdba74;
+  color: #9a3412;
+  border-radius: 12px;
+  padding: 1rem 1.1rem;
+  line-height: 1.5;
+  box-shadow: 0 12px 32px rgba(154, 52, 18, 0.08);
+}
+
+.url-note {
+  margin-top: 0.8rem;
+  color: #334155;
+  font-size: 0.92rem;
+  font-weight: 500;
+}
+
