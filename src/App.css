@@ -20,13 +20,77 @@ body {
 .app {
   width: 100vw;
   height: 100vh;
-  margin: 0;
-  padding: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 16px;
+  padding: 10px 20px;
+  background: #fff;
+  border-bottom: 1px solid #e5e7eb;
+  margin-bottom: 8px;
+  flex-shrink: 0;
+}
+
+.app-header-email {
+  font-size: 13px;
+  color: #475569;
+}
+
+.app-header-logout {
+  padding: 6px 12px;
+  background: #fff;
+  color: #ED2031;
+  border: 1px solid #ED2031;
+  border-radius: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.app-header-logout:hover {
+  background: #ED2031;
+  color: #fff;
+}
+
+.app-main {
+  flex: 1;
+  min-height: 0;
+}
+
+.dashboard-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  padding: 32px;
+}
+
+.dashboard-error-action {
+  padding: 10px 16px;
+  background: #ED2031;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.dashboard-error-action:hover {
+  background: #c91a28;
 }
 
 .tableau-wrapper {
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
 }
 
 .tableau-wrapper tableau-viz {
@@ -51,4 +115,3 @@ body {
   font-size: 0.92rem;
   font-weight: 500;
 }
-
