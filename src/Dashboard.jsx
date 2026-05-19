@@ -12,7 +12,7 @@ const FALLBACK_TTL_SECONDS = 9 * 60
 function Dashboard({ email, onSessionLost }) {
   const vizContainerRef = useRef(null)
   const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
-  const jwtEndpoint = import.meta.env.VITE_TABLEAU_JWT_ENDPOINT?.trim()
+  const jwtEndpoint = '/api/tableau-jwt'
   const embeddableUrl = useMemo(
     () => toEmbeddableTableauUrl(dashboardUrl),
     [dashboardUrl],
