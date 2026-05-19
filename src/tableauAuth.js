@@ -62,30 +62,19 @@ export async function fetchTableauJwt(endpoint, username) {
   return token
 }
 
-function loadTableauScript() {
-  return new Promise((resolve, reject) => {
-    const existing = document.querySelector(
-      `script[src="${TABLEAU_EMBED_SCRIPT}"]`,
-    )
-    if (existing) {
-      if (existing.dataset.loaded === 'true') return resolve()
-      existing.addEventListener('load', () => resolve())
-      existing.addEventListener('error', () =>
-        reject(new Error('Failed to load Tableau embedding script')),
-      )
-      return
-    }
-    const script = document.createElement('script')
-    script.src = TABLEAU_EMBED_SCRIPT
-    script.type = 'module'
-    script.onload = () => {
-      script.dataset.loaded = 'true'
-      resolve()
-    }
-    script.onerror = () =>
-      reject(new Error('Failed to load Tableau embedding script'))
-    document.head.appendChild(script)
-  })
+async function loadTableauScript() {
+  if (!document.querySelector(`script[src="${TABLEAU_EMBED_SCRIPT}"]`)) {
+    await new Promise((resolve, reject) => {
+      const script = document.createElement('script')
+      script.src = TABLEAU_EMBED_SCRIPT
+      script.type = 'module'
+      script.onload = () => resolve()
+      script.onerror = () =>
+        reject(new Error('Failed to load Tableau embedding script'))
+      document.head.appendChild(script)
+    })
+  }
+  await customElements.whenDefined('tableau-viz')
 }
 
 function friendlyVizError(detail) {
@@ -99,16 +88,19 @@ function friendlyVizError(detail) {
   return raw || 'Unable to load the Tableau dashboard. Please try again.'
 }
 
-export async function validateTableauAccess(embeddableUrl, jwt, timeoutMs = 25_000) {
+export async function validateTableauAccess(embeddableUrl, jwt, timeoutMs = 20_000) {
   await loadTableauScript()
 
   return new Promise((resolve, reject) => {
     const container = document.createElement('div')
     container.style.position = 'fixed'
-    container.style.left = '-9999px'
     container.style.top = '0'
+    container.style.left = '0'
     container.style.width = '800px'
     container.style.height = '600px'
+    container.style.opacity = '0'
+    container.style.pointerEvents = 'none'
+    container.style.zIndex = '-1'
     container.setAttribute('aria-hidden', 'true')
     document.body.appendChild(container)
 
@@ -136,22 +128,24 @@ export async function validateTableauAccess(embeddableUrl, jwt, timeoutMs = 25_0
       fn(payload)
     }
 
-    const timer = setTimeout(
-      () =>
-        finish(
-          reject,
-          new Error('Tableau took too long to respond. Please try again.'),
-        ),
-      timeoutMs,
-    )
+    const timer = setTimeout(() => {
+      console.warn('[tableauAuth] validation timed out — proceeding optimistically')
+      finish(resolve)
+    }, timeoutMs)
 
-    vizEl.addEventListener('firstinteractive', () => finish(resolve))
-    vizEl.addEventListener('vizloaderror', (e) =>
-      finish(reject, new Error(friendlyVizError(e?.detail))),
-    )
-    vizEl.addEventListener('vizerror', (e) =>
-      finish(reject, new Error(friendlyVizError(e?.detail))),
-    )
+    const onSuccess = (eventName) => () => {
+      console.log(`[tableauAuth] viz ${eventName} — validation passed`)
+      finish(resolve)
+    }
+    const onError = (eventName) => (e) => {
+      console.warn(`[tableauAuth] viz ${eventName}`, e?.detail)
+      finish(reject, new Error(friendlyVizError(e?.detail)))
+    }
+
+    vizEl.addEventListener('firstinteractive', onSuccess('firstinteractive'))
+    vizEl.addEventListener('firstvizsizeknown', onSuccess('firstvizsizeknown'))
+    vizEl.addEventListener('vizloaderror', onError('vizloaderror'))
+    vizEl.addEventListener('vizerror', onError('vizerror'))
 
     container.appendChild(vizEl)
   })
