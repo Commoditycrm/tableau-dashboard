@@ -20,7 +20,7 @@ function Login({ onLogin }) {
       return
     }
 
-    const jwtEndpoint = import.meta.env.VITE_TABLEAU_JWT_ENDPOINT?.trim()
+    const jwtEndpoint = '/api/tableau-jwt'
     const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
     const embeddableUrl = toEmbeddableTableauUrl(dashboardUrl)
 
