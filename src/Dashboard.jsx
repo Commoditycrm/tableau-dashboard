@@ -58,6 +58,7 @@ function Dashboard({ email, onSessionLost }) {
       if (!vizContainerRef.current) return
       vizContainerRef.current.innerHTML = ''
 
+      const rect = vizContainerRef.current.getBoundingClientRect()
       const vizEl = document.createElement('tableau-viz')
       vizEl.setAttribute('src', embeddableUrl)
       vizEl.setAttribute('token', jwt)
@@ -65,6 +66,9 @@ function Dashboard({ email, onSessionLost }) {
       vizEl.setAttribute('hide-tabs', '')
       vizEl.setAttribute('hide-edit-button', '')
       vizEl.setAttribute('hide-edit-in-desktop-button', '')
+      vizEl.setAttribute('device', 'desktop')
+      vizEl.setAttribute('width', `${Math.round(rect.width)}px`)
+      vizEl.setAttribute('height', `${Math.round(rect.height)}px`)
       vizEl.style.width = '100%'
       vizEl.style.height = '100%'
       vizContainerRef.current.appendChild(vizEl)
