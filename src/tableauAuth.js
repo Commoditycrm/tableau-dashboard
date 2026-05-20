@@ -29,6 +29,28 @@ export function decodeJwtExpMs(token) {
   }
 }
 
+export async function verifyCredentials(email, password) {
+  let res
+  try {
+    res = await fetch('/api/login', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password }),
+    })
+  } catch {
+    throw new Error('Cannot reach the authentication server. Please try again.')
+  }
+  if (res.status === 401) {
+    throw new Error('Invalid username or password.')
+  }
+  if (!res.ok) {
+    throw new Error(`Login failed (${res.status}). Please try again later.`)
+  }
+}
+
 export async function fetchTableauJwt(endpoint, username) {
   let res
   try {

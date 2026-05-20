@@ -4,30 +4,27 @@ import {
   fetchTableauJwt,
   toEmbeddableTableauUrl,
   validateTableauAccess,
+  verifyCredentials,
 } from './tableauAuth'
 import './Login.css'
 
 function Login({ onLogin }) {
   const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const trimmed = email.trim()
-    if (!trimmed) {
-      setError('Please enter your username.')
+    const trimmedEmail = email.trim()
+    if (!trimmedEmail || !password) {
+      setError('Please enter your username and password.')
       return
     }
 
-    const jwtEndpoint = '/api/tableau-jwt'
     const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
     const embeddableUrl = toEmbeddableTableauUrl(dashboardUrl)
 
-    if (!jwtEndpoint) {
-      setError('Login is not configured. Please contact your administrator.')
-      return
-    }
     if (!embeddableUrl) {
       setError('Dashboard is not configured. Please contact your administrator.')
       return
@@ -37,9 +34,10 @@ function Login({ onLogin }) {
     setLoading(true)
 
     try {
-      const jwt = await fetchTableauJwt(jwtEndpoint, trimmed)
+      await verifyCredentials(trimmedEmail, password)
+      const jwt = await fetchTableauJwt('/api/tableau-jwt', trimmedEmail)
       await validateTableauAccess(embeddableUrl, jwt)
-      onLogin({ email: trimmed })
+      onLogin({ email: trimmedEmail })
     } catch (err) {
       setError(err.message || 'Sign in failed. Please try again.')
       setLoading(false)
@@ -58,6 +56,16 @@ function Login({ onLogin }) {
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
             autoFocus
+            disabled={loading}
+          />
+        </label>
+        <label>
+          <span>Password</span>
+          <input
+            type="password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            autoComplete="current-password"
             disabled={loading}
           />
         </label>
