@@ -12,7 +12,6 @@ const FALLBACK_TTL_SECONDS = 9 * 60
 function Dashboard({ email, onSessionLost }) {
   const vizContainerRef = useRef(null)
   const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
-  const jwtEndpoint = '/api/tableau-jwt'
   const embeddableUrl = useMemo(
     () => toEmbeddableTableauUrl(dashboardUrl),
     [dashboardUrl],
@@ -21,14 +20,14 @@ function Dashboard({ email, onSessionLost }) {
   const [jwt, setJwt] = useState(null)
 
   useEffect(() => {
-    if (!jwtEndpoint || !email) return
+    if (!email) return
 
     let cancelled = false
     let timerId = null
 
     const load = async () => {
       try {
-        const token = await fetchTableauJwt(jwtEndpoint, email)
+        const token = await fetchTableauJwt('/api/tableau-jwt', email)
         if (cancelled) return
         setJwt(token)
 
@@ -49,7 +48,7 @@ function Dashboard({ email, onSessionLost }) {
       cancelled = true
       if (timerId) clearTimeout(timerId)
     }
-  }, [jwtEndpoint, email, onSessionLost])
+  }, [email, onSessionLost])
 
   useEffect(() => {
     if (!embeddableUrl || !vizContainerRef.current || !jwt) return

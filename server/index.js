@@ -1,8 +1,13 @@
 import express from 'express'
 import cors from 'cors'
 import jwt from 'jsonwebtoken'
+import bcrypt from 'bcryptjs'
+import { sql } from '@vercel/postgres'
 import { randomUUID } from 'node:crypto'
-import 'dotenv/config'
+import { config } from 'dotenv'
+
+config({ path: '.env.local' })
+config({ path: '.env' })
 
 const {
   TABLEAU_CONNECTED_APP_CLIENT_ID,
@@ -19,6 +24,27 @@ app.use(cors())
 app.use(express.json())
 
 app.get('/healthz', (_req, res) => res.json({ ok: true }))
+
+app.post('/api/login', async (req, res) => {
+  const email = (req.body?.email || '').trim().toLowerCase()
+  const password = req.body?.password || ''
+  if (!email || !password) {
+    return res.status(400).json({ error: 'email_and_password_required' })
+  }
+  try {
+    const { rows } = await sql`
+      SELECT email, password_hash FROM users WHERE email = ${email} LIMIT 1
+    `
+    const user = rows[0]
+    if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+      return res.status(401).json({ error: 'invalid_credentials' })
+    }
+    res.json({ ok: true, email: user.email })
+  } catch (err) {
+    console.error('login error', err)
+    res.status(500).json({ error: 'server_error' })
+  }
+})
 
 app.post('/api/tableau-jwt', (req, res) => {
   if (
