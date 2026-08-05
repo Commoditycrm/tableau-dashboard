@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { fetchDashboardUrl, saveDashboardUrl } from './tableauAuth'
 import './AdminSettings.css'
 
@@ -9,6 +9,10 @@ function AdminSettings({ email, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [saved, setSaved] = useState(false)
+  const closeTimerRef = useRef(null)
+
+  // Cancel a pending auto-close if the modal unmounts first.
+  useEffect(() => () => clearTimeout(closeTimerRef.current), [])
 
   useEffect(() => {
     let cancelled = false
@@ -26,6 +30,15 @@ function AdminSettings({ email, onClose, onSaved }) {
       cancelled = true
     }
   }, [])
+
+  // Close on Escape (but never mid-save).
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !saving) onClose()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [onClose, saving])
 
   const handleSave = async (e) => {
     e.preventDefault()
@@ -50,6 +63,8 @@ function AdminSettings({ email, onClose, onSaved }) {
       setSaved(true)
       // Push the new URL to the live Dashboard so it re-embeds without a refresh.
       if (onSaved) onSaved(savedUrl)
+      // Let the success confirmation show briefly, then close automatically.
+      closeTimerRef.current = setTimeout(() => onClose(), 900)
     } catch (err) {
       setError(err.message || 'Could not save the dashboard URL.')
     } finally {
@@ -58,23 +73,66 @@ function AdminSettings({ email, onClose, onSaved }) {
   }
 
   return (
-    <div className="admin-backdrop" role="dialog" aria-modal="true">
-      <div className="admin-modal">
+    <div
+      className="admin-backdrop"
+      onMouseDown={(e) => {
+        if (e.target === e.currentTarget && !saving) onClose()
+      }}
+    >
+      <div
+        className="admin-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="admin-title"
+      >
         <div className="admin-modal-head">
-          <h2>Dashboard settings</h2>
+          <span className="admin-head-icon" aria-hidden="true">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <circle cx="12" cy="12" r="3" />
+              <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+            </svg>
+          </span>
+          <div className="admin-head-text">
+            <h2 id="admin-title">Dashboard settings</h2>
+            <p className="admin-head-sub">Change the embedded Tableau dashboard</p>
+          </div>
           <button
             type="button"
             className="admin-close"
             onClick={onClose}
+            disabled={saving}
             aria-label="Close"
           >
-            ×
+            <svg
+              width="18"
+              height="18"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            >
+              <line x1="18" y1="6" x2="6" y2="18" />
+              <line x1="6" y1="6" x2="18" y2="18" />
+            </svg>
           </button>
         </div>
 
         <form className="admin-body" onSubmit={handleSave}>
-          <label className="admin-field">
-            <span>Tableau dashboard URL</span>
+          <div className="admin-field">
+            <label htmlFor="admin-url" className="admin-label">
+              Tableau dashboard URL
+            </label>
             {loading ? (
               <div className="admin-loading">
                 <span className="admin-spinner" aria-hidden="true" />
@@ -82,6 +140,8 @@ function AdminSettings({ email, onClose, onSaved }) {
               </div>
             ) : (
               <textarea
+                id="admin-url"
+                className="admin-input admin-input-mono"
                 rows={3}
                 value={url}
                 onChange={(e) => {
@@ -89,14 +149,22 @@ function AdminSettings({ email, onClose, onSaved }) {
                   setSaved(false)
                 }}
                 disabled={saving}
+                spellCheck={false}
                 placeholder="https://…/#/site/…/views/Workbook/Dashboard"
               />
             )}
-          </label>
+            <span className="admin-help">
+              Paste the full view URL copied from Tableau.
+            </span>
+          </div>
 
-          <label className="admin-field">
-            <span>Confirm your password</span>
+          <div className="admin-field">
+            <label htmlFor="admin-pass" className="admin-label">
+              Confirm your password
+            </label>
             <input
+              id="admin-pass"
+              className="admin-input"
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
@@ -104,21 +172,53 @@ function AdminSettings({ email, onClose, onSaved }) {
               autoComplete="current-password"
               placeholder="••••••••"
             />
-          </label>
+          </div>
 
-          <p className="admin-hint">
-            Changes take effect immediately — users see the new dashboard the next
-            time they log in or reload. No redeploy needed.
-          </p>
+          <div className="admin-callout">
+            <svg
+              className="admin-callout-icon"
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="12" cy="12" r="10" />
+              <line x1="12" y1="16" x2="12" y2="12" />
+              <line x1="12" y1="8" x2="12.01" y2="8" />
+            </svg>
+            <span>
+              Changes apply instantly. Users see the new dashboard
+              on their next load.
+            </span>
+          </div>
 
           {error && (
-            <p className="admin-error" role="alert">
+            <p className="admin-note admin-note-error" role="alert">
+              <span className="admin-note-dot" aria-hidden="true" />
               {error}
             </p>
           )}
           {saved && (
-            <p className="admin-success" role="status">
-              Saved. The dashboard URL is updated.
+            <p className="admin-note admin-note-success" role="status">
+              <svg
+                width="15"
+                height="15"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <polyline points="20 6 9 17 4 12" />
+              </svg>
+              Saved — the dashboard is updated.
             </p>
           )}
 
@@ -129,14 +229,21 @@ function AdminSettings({ email, onClose, onSaved }) {
               onClick={onClose}
               disabled={saving}
             >
-              Close
+              Cancel
             </button>
             <button
               type="submit"
               className="admin-btn admin-btn-primary"
               disabled={loading || saving}
             >
-              {saving ? 'Saving…' : 'Save URL'}
+              {saving ? (
+                <>
+                  <span className="admin-spinner admin-spinner-light" aria-hidden="true" />
+                  Saving…
+                </>
+              ) : (
+                'Save changes'
+              )}
             </button>
           </div>
         </form>
