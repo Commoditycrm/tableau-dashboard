@@ -1,13 +1,9 @@
 import { sql } from '@vercel/postgres'
 import bcrypt from 'bcryptjs'
 
-// Only this account may edit the dashboard URL. Configurable via env,
-// defaults to the designated admin.
-const ADMIN_EMAIL = (
-  process.env.ADMIN_EMAIL || 'kacey@smartlogisticsinc.com'
-)
-  .trim()
-  .toLowerCase()
+// Only this account may edit the dashboard URL. Set via the ADMIN_EMAIL env var.
+// If unset, no one is treated as admin (fail closed).
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
 
 function isValidDashboardUrl(value) {
   if (typeof value !== 'string') return false
