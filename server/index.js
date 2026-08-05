@@ -20,9 +20,8 @@ const DEFAULT_SCOPES = ['tableau:views:embed', 'tableau:views:embed_authoring']
 const TOKEN_TTL_SECONDS = 9 * 60
 
 // Only this account may edit the dashboard URL (see api/dashboard-url.js).
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'kacey@smartlogisticsinc.com')
-  .trim()
-  .toLowerCase()
+// Set via the ADMIN_EMAIL env var; if unset, no one is treated as admin.
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
 
 function isValidDashboardUrl(value) {
   if (typeof value !== 'string') return false

@@ -1,9 +1,7 @@
 import { sql } from '@vercel/postgres'
 import bcrypt from 'bcryptjs'
 
-const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'kacey@smartlogisticsinc.com')
-  .trim()
-  .toLowerCase()
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
 
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
