@@ -49,6 +49,62 @@ export async function verifyCredentials(email, password) {
   if (!res.ok) {
     throw new Error(`Login failed (${res.status}). Please try again later.`)
   }
+  try {
+    return await res.json()
+  } catch {
+    return {}
+  }
+}
+
+export async function fetchDashboardUrl() {
+  let res
+  try {
+    res = await fetch('/api/dashboard-url', {
+      headers: { Accept: 'application/json' },
+    })
+  } catch {
+    throw new Error('Cannot reach the dashboard service. Please try again.')
+  }
+  if (!res.ok) {
+    throw new Error(`Could not load the dashboard configuration (${res.status}).`)
+  }
+  let data
+  try {
+    data = await res.json()
+  } catch {
+    throw new Error('Dashboard service returned an invalid response.')
+  }
+  return (data?.url || '').trim()
+}
+
+export async function saveDashboardUrl({ email, password, url }) {
+  let res
+  try {
+    res = await fetch('/api/dashboard-url', {
+      method: 'POST',
+      headers: {
+        Accept: 'application/json',
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ email, password, url }),
+    })
+  } catch {
+    throw new Error('Cannot reach the dashboard service. Please try again.')
+  }
+  if (res.status === 400) {
+    throw new Error('That does not look like a valid Tableau dashboard URL.')
+  }
+  if (res.status === 401) {
+    throw new Error('Your password was incorrect.')
+  }
+  if (res.status === 403) {
+    throw new Error('This account is not allowed to change the dashboard URL.')
+  }
+  if (!res.ok) {
+    throw new Error(`Could not save the dashboard URL (${res.status}).`)
+  }
+  const data = await res.json()
+  return (data?.url || '').trim()
 }
 
 export async function fetchTableauJwt(endpoint, username) {

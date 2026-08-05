@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import smlLogo from './assets/sml-logo.svg'
 import {
+  fetchDashboardUrl,
   fetchTableauJwt,
   toEmbeddableTableauUrl,
   validateTableauAccess,
@@ -23,22 +24,23 @@ function Login({ onLogin }) {
       return
     }
 
-    const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
-    const embeddableUrl = toEmbeddableTableauUrl(dashboardUrl)
-
-    if (!embeddableUrl) {
-      setError('Dashboard is not configured. Please contact your administrator.')
-      return
-    }
-
     setError('')
     setLoading(true)
 
     try {
-      await verifyCredentials(trimmedEmail, password)
+      const auth = await verifyCredentials(trimmedEmail, password)
+
+      const dashboardUrl = await fetchDashboardUrl()
+      const embeddableUrl = toEmbeddableTableauUrl(dashboardUrl)
+      if (!embeddableUrl) {
+        throw new Error(
+          'Dashboard is not configured. Please contact your administrator.',
+        )
+      }
+
       const jwt = await fetchTableauJwt('/api/tableau-jwt', trimmedEmail)
       await validateTableauAccess(embeddableUrl, jwt)
-      onLogin({ email: trimmedEmail })
+      onLogin({ email: trimmedEmail, isAdmin: !!auth?.isAdmin })
     } catch (err) {
       setError(err.message || 'Sign in failed. Please try again.')
       setLoading(false)

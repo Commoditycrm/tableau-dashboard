@@ -1,6 +1,10 @@
 import { sql } from '@vercel/postgres'
 import bcrypt from 'bcryptjs'
 
+const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || 'kacey@smartlogisticsinc.com')
+  .trim()
+  .toLowerCase()
+
 export default async function handler(req, res) {
   res.setHeader('Access-Control-Allow-Origin', '*')
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
@@ -32,7 +36,8 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'invalid_credentials' })
     }
 
-    return res.status(200).json({ ok: true, email: user.email })
+    const isAdmin = user.email.trim().toLowerCase() === ADMIN_EMAIL
+    return res.status(200).json({ ok: true, email: user.email, isAdmin })
   } catch (err) {
     console.error('login error', err)
     return res.status(500).json({ error: 'server_error' })

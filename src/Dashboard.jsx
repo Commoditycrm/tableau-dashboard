@@ -9,9 +9,8 @@ import {
 const REFRESH_LEAD_SECONDS = 30
 const FALLBACK_TTL_SECONDS = 9 * 60
 
-function Dashboard({ email, onSessionLost }) {
+function Dashboard({ email, dashboardUrl, onSessionLost }) {
   const vizContainerRef = useRef(null)
-  const dashboardUrl = import.meta.env.VITE_TABLEAU_DASHBOARD_URL?.trim()
   const embeddableUrl = useMemo(
     () => toEmbeddableTableauUrl(dashboardUrl),
     [dashboardUrl],
@@ -88,7 +87,15 @@ function Dashboard({ email, onSessionLost }) {
     document.head.appendChild(script)
   }, [embeddableUrl, jwt])
 
-  if (!jwt) {
+  if (dashboardUrl === '') {
+    return (
+      <p className="missing-url">
+        Dashboard is not configured. Please contact your administrator.
+      </p>
+    )
+  }
+
+  if (dashboardUrl === null || !jwt) {
     return <p className="missing-url">Loading dashboard…</p>
   }
 
