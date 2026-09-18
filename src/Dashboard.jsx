@@ -8,13 +8,35 @@ import {
 
 const REFRESH_LEAD_SECONDS = 30
 const FALLBACK_TTL_SECONDS = 9 * 60
+const PULSE_HEIGHT_PX = 900
 
-function Dashboard({ email, dashboardUrl, onSessionLost }) {
+function loadEmbedScript(onReady) {
+  const existing = document.querySelector(`script[src="${TABLEAU_EMBED_SCRIPT}"]`)
+  if (existing) {
+    onReady()
+    return
+  }
+  const script = document.createElement('script')
+  script.src = TABLEAU_EMBED_SCRIPT
+  script.type = 'module'
+  script.onload = onReady
+  document.head.appendChild(script)
+}
+
+/**
+ * Embeds the customer's Tableau dashboard and, beneath it, any Tableau Pulse
+ * metrics configured by the admin. Both use the same short-lived JWT, which is
+ * refreshed shortly before expiry.
+ */
+function Dashboard({ email, dashboardUrl, pulseUrls = [], onSessionLost }) {
   const vizContainerRef = useRef(null)
+  const pulseContainerRef = useRef(null)
   const embeddableUrl = useMemo(
     () => toEmbeddableTableauUrl(dashboardUrl),
     [dashboardUrl],
   )
+  // Stable key so the Pulse effect only re-runs when the list actually changes.
+  const pulseKey = useMemo(() => pulseUrls.join('\n'), [pulseUrls])
 
   const [jwt, setJwt] = useState(null)
 
@@ -49,6 +71,7 @@ function Dashboard({ email, dashboardUrl, onSessionLost }) {
     }
   }, [email, onSessionLost])
 
+  // Dashboard (tableau-viz)
   useEffect(() => {
     if (!embeddableUrl || !vizContainerRef.current || !jwt) return
 
@@ -72,20 +95,42 @@ function Dashboard({ email, dashboardUrl, onSessionLost }) {
       vizContainerRef.current.appendChild(vizEl)
     }
 
-    const existingScript = document.querySelector(
-      `script[src="${TABLEAU_EMBED_SCRIPT}"]`,
-    )
-    if (existingScript) {
-      mountViz()
-      return
+    loadEmbedScript(mountViz)
+  }, [embeddableUrl, jwt])
+
+  // Pulse metrics (tableau-pulse), one element per configured metric URL.
+  // Requires the JWT to carry the tableau:insights:embed scope.
+  useEffect(() => {
+    if (!pulseContainerRef.current || !jwt) return
+    const urls = pulseKey ? pulseKey.split('\n') : []
+
+    const mountPulse = () => {
+      const container = pulseContainerRef.current
+      if (!container) return
+      container.innerHTML = ''
+      for (const url of urls) {
+        const card = document.createElement('div')
+        card.className = 'pulse-card'
+        const pulseEl = document.createElement('tableau-pulse')
+        pulseEl.setAttribute('src', url)
+        pulseEl.setAttribute('token', jwt)
+        pulseEl.setAttribute('width', '100%')
+        pulseEl.setAttribute('height', `${PULSE_HEIGHT_PX}px`)
+        pulseEl.addEventListener('pulseerror', (e) => {
+          console.warn('[pulse] error for', url, e?.detail)
+          card.classList.add('pulse-card-error')
+        })
+        card.appendChild(pulseEl)
+        container.appendChild(card)
+      }
     }
 
-    const script = document.createElement('script')
-    script.src = TABLEAU_EMBED_SCRIPT
-    script.type = 'module'
-    script.onload = mountViz
-    document.head.appendChild(script)
-  }, [embeddableUrl, jwt])
+    if (urls.length === 0) {
+      pulseContainerRef.current.innerHTML = ''
+      return
+    }
+    loadEmbedScript(mountPulse)
+  }, [pulseKey, jwt])
 
   if (dashboardUrl === '') {
     return (
@@ -99,7 +144,19 @@ function Dashboard({ email, dashboardUrl, onSessionLost }) {
     return <p className="missing-url">Loading dashboard…</p>
   }
 
-  return <div className="tableau-wrapper" ref={vizContainerRef} />
+  const hasPulse = pulseUrls.length > 0
+
+  return (
+    <div className={hasPulse ? 'dashboard-stack' : 'dashboard-single'}>
+      <div className="tableau-wrapper" ref={vizContainerRef} />
+      <div
+        className="pulse-section"
+        ref={pulseContainerRef}
+        hidden={!hasPulse}
+        aria-label="Insights"
+      />
+    </div>
+  )
 }
 
 export default Dashboard

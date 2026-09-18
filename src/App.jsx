@@ -3,7 +3,7 @@ import './App.css'
 import Login from './Login'
 import Dashboard from './Dashboard'
 import AdminSettings from './AdminSettings'
-import { fetchDashboardUrl } from './tableauAuth'
+import { fetchDashboardConfig, logoutSession } from './tableauAuth'
 
 const STORAGE_KEY = 'tableau-user-email'
 const ADMIN_STORAGE_KEY = 'tableau-user-is-admin'
@@ -23,6 +23,8 @@ function App() {
   // configured, otherwise the URL. Kept here so an admin save can update the
   // live Dashboard without a page refresh.
   const [dashboardUrl, setDashboardUrl] = useState(null)
+  // Tableau Pulse metric URLs shown beneath the dashboard (admin-managed).
+  const [pulseUrls, setPulseUrls] = useState([])
 
   // Stable reference so opening the settings modal (an App re-render) does not
   // re-run Dashboard's JWT effect and reload the Tableau viz.
@@ -31,9 +33,11 @@ function App() {
   useEffect(() => {
     if (!user?.email) return
     let cancelled = false
-    fetchDashboardUrl()
-      .then((url) => {
-        if (!cancelled) setDashboardUrl(url)
+    fetchDashboardConfig()
+      .then((config) => {
+        if (cancelled) return
+        setDashboardUrl(config.url)
+        setPulseUrls(config.pulseUrls)
       })
       .catch(() => {
         if (!cancelled) setDashboardUrl('')
@@ -73,7 +77,10 @@ function App() {
         <button
           type="button"
           className="app-header-logout"
-          onClick={() => setUser(null)}
+          onClick={() => {
+            logoutSession()
+            setUser(null)
+          }}
         >
           Log out
         </button>
@@ -82,6 +89,7 @@ function App() {
         <Dashboard
           email={user.email}
           dashboardUrl={dashboardUrl}
+          pulseUrls={pulseUrls}
           onSessionLost={handleSessionLost}
         />
       </main>
@@ -89,7 +97,10 @@ function App() {
         <AdminSettings
           email={user.email}
           onClose={() => setShowSettings(false)}
-          onSaved={setDashboardUrl}
+          onSaved={(config) => {
+            setDashboardUrl(config.url)
+            setPulseUrls(config.pulseUrls)
+          }}
         />
       )}
     </div>

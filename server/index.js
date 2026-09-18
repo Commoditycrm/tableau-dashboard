@@ -16,7 +16,8 @@ const {
   PORT = 3001,
 } = process.env
 
-const DEFAULT_SCOPES = ['tableau:views:embed', 'tableau:views:embed_authoring']
+// Fixed server-side; mirrors api/tableau-jwt.js. Clients cannot widen scopes.
+const SCOPES = ['tableau:views:embed', 'tableau:insights:embed']
 const TOKEN_TTL_SECONDS = 9 * 60
 
 // Only this account may edit the dashboard URL (see api/dashboard-url.js).
@@ -129,9 +130,7 @@ app.post('/api/tableau-jwt', (req, res) => {
     return res.status(400).json({ error: 'username_required' })
   }
 
-  const scopes = Array.isArray(req.body?.scopes) && req.body.scopes.length > 0
-    ? req.body.scopes
-    : DEFAULT_SCOPES
+  const scopes = SCOPES
 
   const nowSeconds = Math.floor(Date.now() / 1000)
   const expSeconds = nowSeconds + TOKEN_TTL_SECONDS

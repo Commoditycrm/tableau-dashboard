@@ -56,7 +56,11 @@ export async function verifyCredentials(email, password) {
   }
 }
 
-export async function fetchDashboardUrl() {
+/**
+ * Dashboard configuration: the embedded view URL and the list of Tableau
+ * Pulse metric URLs shown beneath it. Both are admin-managed in app_settings.
+ */
+export async function fetchDashboardConfig() {
   let res
   try {
     res = await fetch('/api/dashboard-url', {
@@ -74,10 +78,20 @@ export async function fetchDashboardUrl() {
   } catch {
     throw new Error('Dashboard service returned an invalid response.')
   }
-  return (data?.url || '').trim()
+  return {
+    url: (data?.url || '').trim(),
+    pulseUrls: Array.isArray(data?.pulseUrls)
+      ? data.pulseUrls.map((u) => String(u).trim()).filter(Boolean)
+      : [],
+  }
 }
 
-export async function saveDashboardUrl({ email, password, url }) {
+export async function fetchDashboardUrl() {
+  const { url } = await fetchDashboardConfig()
+  return url
+}
+
+export async function saveDashboardConfig({ email, password, url, pulseUrls }) {
   let res
   try {
     res = await fetch('/api/dashboard-url', {
@@ -86,25 +100,53 @@ export async function saveDashboardUrl({ email, password, url }) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ email, password, url }),
+      body: JSON.stringify({ email, password, url, pulseUrls }),
     })
   } catch {
     throw new Error('Cannot reach the dashboard service. Please try again.')
   }
   if (res.status === 400) {
+    let code = ''
+    try {
+      code = (await res.json())?.error || ''
+    } catch {
+      /* ignore */
+    }
+    if (code === 'invalid_pulse_url') {
+      throw new Error(
+        'One of the Pulse metric URLs does not look right. Each line must be a Tableau Pulse metric link (…/pulse/site/…/metrics/…).',
+      )
+    }
     throw new Error('That does not look like a valid Tableau dashboard URL.')
   }
   if (res.status === 401) {
     throw new Error('Your password was incorrect.')
   }
   if (res.status === 403) {
-    throw new Error('This account is not allowed to change the dashboard URL.')
+    throw new Error('This account is not allowed to change the dashboard settings.')
   }
   if (!res.ok) {
-    throw new Error(`Could not save the dashboard URL (${res.status}).`)
+    throw new Error(`Could not save the dashboard settings (${res.status}).`)
   }
   const data = await res.json()
-  return (data?.url || '').trim()
+  return {
+    url: (data?.url || '').trim(),
+    pulseUrls: Array.isArray(data?.pulseUrls) ? data.pulseUrls : [],
+  }
+}
+
+export async function saveDashboardUrl({ email, password, url }) {
+  const saved = await saveDashboardConfig({ email, password, url })
+  return saved.url
+}
+
+/** Ends the server-side login session (clears the session cookie). */
+export async function logoutSession() {
+  try {
+    await fetch('/api/logout', { method: 'POST' })
+  } catch {
+    /* best effort */
+  }
 }
 
 export async function fetchTableauJwt(endpoint, username) {
@@ -116,7 +158,7 @@ export async function fetchTableauJwt(endpoint, username) {
         Accept: 'application/json',
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ username }),
+      body: JSON.stringify({ username }), // ignored by the server once SESSION_SECRET is set
     })
   } catch {
     throw new Error('Cannot reach the authentication server. Please try again.')

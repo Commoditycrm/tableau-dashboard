@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { fetchDashboardUrl, saveDashboardUrl } from './tableauAuth'
+import { fetchDashboardConfig, saveDashboardConfig } from './tableauAuth'
 import './AdminSettings.css'
 
 function AdminSettings({ email, onClose, onSaved }) {
   const [url, setUrl] = useState('')
+  // One Tableau Pulse metric URL per line.
+  const [pulseText, setPulseText] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -16,9 +18,11 @@ function AdminSettings({ email, onClose, onSaved }) {
 
   useEffect(() => {
     let cancelled = false
-    fetchDashboardUrl()
+    fetchDashboardConfig()
       .then((current) => {
-        if (!cancelled) setUrl(current)
+        if (cancelled) return
+        setUrl(current.url)
+        setPulseText(current.pulseUrls.join('\n'))
       })
       .catch((err) => {
         if (!cancelled) setError(err.message || 'Could not load the current URL.')
@@ -57,12 +61,22 @@ function AdminSettings({ email, onClose, onSaved }) {
 
     setSaving(true)
     try {
-      const savedUrl = await saveDashboardUrl({ email, password, url: trimmedUrl })
-      setUrl(savedUrl)
+      const pulseUrls = pulseText
+        .split(/\r?\n/)
+        .map((line) => line.trim())
+        .filter(Boolean)
+      const saved = await saveDashboardConfig({
+        email,
+        password,
+        url: trimmedUrl,
+        pulseUrls,
+      })
+      setUrl(saved.url)
+      setPulseText(saved.pulseUrls.join('\n'))
       setPassword('')
       setSaved(true)
-      // Push the new URL to the live Dashboard so it re-embeds without a refresh.
-      if (onSaved) onSaved(savedUrl)
+      // Push the new config to the live Dashboard so it re-embeds without a refresh.
+      if (onSaved) onSaved(saved)
       // Let the success confirmation show briefly, then close automatically.
       closeTimerRef.current = setTimeout(() => onClose(), 900)
     } catch (err) {
@@ -159,6 +173,29 @@ function AdminSettings({ email, onClose, onSaved }) {
           </div>
 
           <div className="admin-field">
+            <label htmlFor="admin-pulse" className="admin-label">
+              Tableau Pulse metrics (optional)
+            </label>
+            <textarea
+              id="admin-pulse"
+              className="admin-input admin-input-mono"
+              rows={4}
+              value={pulseText}
+              onChange={(e) => {
+                setPulseText(e.target.value)
+                setSaved(false)
+              }}
+              disabled={loading || saving}
+              spellCheck={false}
+              placeholder={'https://…/pulse/site/…/metrics/…\nOne metric URL per line'}
+            />
+            <span className="admin-help">
+              Each metric is shown as a Pulse card beneath the dashboard. Leave
+              empty to show the dashboard only.
+            </span>
+          </div>
+
+          <div className="admin-field">
             <label htmlFor="admin-pass" className="admin-label">
               Confirm your password
             </label>
@@ -218,7 +255,7 @@ function AdminSettings({ email, onClose, onSaved }) {
               >
                 <polyline points="20 6 9 17 4 12" />
               </svg>
-              Saved — the dashboard is updated.
+              Saved — the dashboard settings are updated.
             </p>
           )}
 
