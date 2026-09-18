@@ -1,17 +1,18 @@
 import jwt from 'jsonwebtoken'
 import { randomUUID } from 'node:crypto'
+import { applyCors } from './_lib/cors.js'
+import { getSession, isSessionEnabled } from './_lib/session.js'
 
-const DEFAULT_SCOPES = ['tableau:views:embed', 'tableau:views:embed_authoring']
+// Scopes are fixed server-side. The client can never widen them.
+//   tableau:views:embed    — embed dashboards / views
+//   tableau:insights:embed — embed Tableau Pulse metrics
+// tableau:views:embed_authoring was removed: nothing in the app uses web
+// authoring, and it would let an embedded user open Tableau's editor.
+const SCOPES = ['tableau:views:embed', 'tableau:insights:embed']
 const TOKEN_TTL_SECONDS = 9 * 60
 
 export default function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-  if (req.method === 'OPTIONS') {
-    return res.status(204).end()
-  }
+  if (applyCors(req, res, 'POST, OPTIONS')) return
 
   if (req.method !== 'POST') {
     return res.status(405).json({ error: 'method_not_allowed' })
@@ -33,15 +34,25 @@ export default function handler(req, res) {
       .json({ error: 'tableau_connected_app_not_configured' })
   }
 
-  const username = req.body?.username
-  if (!username) {
-    return res.status(400).json({ error: 'username_required' })
+  // Identity comes from the server-verified login session, never from the
+  // request body. Legacy fallback (body username) stays only until
+  // SESSION_SECRET is configured, and is logged so it is visible.
+  let username
+  if (isSessionEnabled()) {
+    const session = getSession(req)
+    if (!session) {
+      return res.status(401).json({ error: 'not_signed_in' })
+    }
+    username = session.email
+  } else {
+    console.warn(
+      '[tableau-jwt] SESSION_SECRET not set — trusting username from request body (legacy mode)',
+    )
+    username = (req.body?.username || '').trim()
+    if (!username) {
+      return res.status(400).json({ error: 'username_required' })
+    }
   }
-
-  const scopes =
-    Array.isArray(req.body?.scopes) && req.body.scopes.length > 0
-      ? req.body.scopes
-      : DEFAULT_SCOPES
 
   const nowSeconds = Math.floor(Date.now() / 1000)
   const expSeconds = nowSeconds + TOKEN_TTL_SECONDS
@@ -51,7 +62,7 @@ export default function handler(req, res) {
       iss: TABLEAU_CONNECTED_APP_CLIENT_ID,
       aud: 'tableau',
       sub: username,
-      scp: scopes,
+      scp: SCOPES,
       jti: randomUUID(),
       exp: expSeconds,
     },

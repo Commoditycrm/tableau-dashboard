@@ -1,14 +1,16 @@
 import { sql } from '@vercel/postgres'
 import bcrypt from 'bcryptjs'
+import { applyCors } from './_lib/cors.js'
+import {
+  createSessionToken,
+  isSessionEnabled,
+  sessionCookieHeader,
+} from './_lib/session.js'
 
 const ADMIN_EMAIL = (process.env.ADMIN_EMAIL || '').trim().toLowerCase()
 
 export default async function handler(req, res) {
-  res.setHeader('Access-Control-Allow-Origin', '*')
-  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS')
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type')
-
-  if (req.method === 'OPTIONS') return res.status(204).end()
+  if (applyCors(req, res, 'POST, OPTIONS')) return
   if (req.method !== 'POST') return res.status(405).json({ error: 'method_not_allowed' })
 
   const email = (req.body?.email || '').trim().toLowerCase()
@@ -34,7 +36,14 @@ export default async function handler(req, res) {
       return res.status(401).json({ error: 'invalid_credentials' })
     }
 
-    const isAdmin = user.email.trim().toLowerCase() === ADMIN_EMAIL
+    const normalizedEmail = user.email.trim().toLowerCase()
+    const isAdmin = normalizedEmail === ADMIN_EMAIL
+
+    // Establish the server-side session that /api/tableau-jwt trusts.
+    if (isSessionEnabled()) {
+      res.setHeader('Set-Cookie', sessionCookieHeader(createSessionToken(normalizedEmail)))
+    }
+
     return res.status(200).json({ ok: true, email: user.email, isAdmin })
   } catch (err) {
     console.error('login error', err)
