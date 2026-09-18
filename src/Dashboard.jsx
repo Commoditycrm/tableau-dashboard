@@ -39,6 +39,7 @@ function Dashboard({ email, dashboardUrl, pulseUrls = [], onSessionLost }) {
   const pulseKey = useMemo(() => pulseUrls.join('\n'), [pulseUrls])
 
   const [jwt, setJwt] = useState(null)
+  const hasPulse = pulseUrls.length > 0
 
   useEffect(() => {
     if (!email) return
@@ -96,7 +97,9 @@ function Dashboard({ email, dashboardUrl, pulseUrls = [], onSessionLost }) {
     }
 
     loadEmbedScript(mountViz)
-  }, [embeddableUrl, jwt])
+    // hasPulse changes the wrapper's height (single vs stacked layout); the viz
+    // is sized from the wrapper at mount, so re-mount when the layout flips.
+  }, [embeddableUrl, jwt, hasPulse])
 
   // Pulse metrics (tableau-pulse), one element per configured metric URL.
   // Requires the JWT to carry the tableau:insights:embed scope.
@@ -143,8 +146,6 @@ function Dashboard({ email, dashboardUrl, pulseUrls = [], onSessionLost }) {
   if (dashboardUrl === null || !jwt) {
     return <p className="missing-url">Loading dashboard…</p>
   }
-
-  const hasPulse = pulseUrls.length > 0
 
   return (
     <div className={hasPulse ? 'dashboard-stack' : 'dashboard-single'}>

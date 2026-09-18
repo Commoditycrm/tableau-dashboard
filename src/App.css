@@ -101,6 +101,10 @@ body {
   min-height: 480px;
 }
 
+.pulse-section[hidden] {
+  display: none;
+}
+
 .pulse-section {
   display: flex;
   flex-direction: column;
